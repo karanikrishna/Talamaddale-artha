@@ -1,0 +1,14 @@
+{
+  "name": "talamaddale-artha",
+  "version": "1.1.0",
+  "private": true,
+  "description": "ತಾಳಮದ್ದಳೆ ಅರ್ಥ workshop: strong interpretation and two-role discussion from a Yakshagana padya.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
