@@ -31,7 +31,8 @@
 
   <div class="principles">
     <strong>ಅರ್ಥವು ಪದ್ಯದ ಶಬ್ದಾರ್ಥ ಮಾತ್ರವಲ್ಲ.</strong> It is a situated interpretation tested in dialogue. Every panel can be edited; the artiste decides.
-    <span id="sampleBadge" class="badge">Prefilled example snapshot</span>
+    <span id="sampleBadge" class="badge" hidden>Example only — not generated</span>
+    <span id="outputLabel" class="badge ai-badge" hidden>ಎಐ-ಸಹಾಯಿತ ಸೂಚನೆ</span>
   </div>
 
   <section class="progress-wrap" aria-label="Five-beat progress">
@@ -42,7 +43,7 @@
       <li data-beat="4"><span class="beat-dot">4</span><span class="beat-label">Reading</span></li>
       <li data-beat="5"><span class="beat-dot">5</span><span class="beat-label">Response</span></li>
     </ol>
-    <p id="pipelineStatus" aria-live="polite">Prefilled example — all five beats shown. Configure a model and run the pipeline to recompute.</p>
+    <p id="pipelineStatus" aria-live="polite">Choose Swagatha or Dialogue, enter padya and prasanga, connect a model, then generate. Roles can be inferred or overridden.</p>
   </section>
 
   <main class="layout">
@@ -57,26 +58,35 @@
 
         <label class="field">
           <span>Pada <em>required</em></span>
-          <textarea id="pada" rows="9" lang="kn" spellcheck="false" aria-describedby="padaHint"></textarea>
+          <textarea id="pada" rows="9" lang="kn" spellcheck="false" aria-describedby="padaHint" placeholder="ನಿಮ್ಮ ಪದ್ಯವನ್ನು ಇಲ್ಲಿ ಅಂಟಿಸಿ…"></textarea>
           <small id="padaHint">[ಸಂಗೀತ] cues and &gt;&gt; separators are removed before Layer 1.</small>
+        </label>
+
+        <label class="field mode-field">
+          <span>Mode <em>required</em></span>
+          <select id="mode" aria-describedby="modeHint">
+            <option value="swagatha">ಸ್ವಗತ / Swagatha — one role introduces itself</option>
+            <option value="dialogue">ಸಂವಾದ / Dialogue — two roles debate</option>
+          </select>
+          <small id="modeHint">ಸ್ವಗತದಲ್ಲಿ ಪ್ರತಿವಾದಿ ಇರುವುದಿಲ್ಲ. Dialogue may infer a prativadi; you can override it.</small>
         </label>
 
         <div class="field-row">
           <label class="field">
             <span>Prasanga <em>required</em></span>
-            <input id="prasanga" type="text" lang="kn" autocomplete="off">
+            <input id="prasanga" type="text" lang="kn" autocomplete="off" placeholder="ಉದಾ: ಗುರುದಕ್ಷಿಣೆ">
           </label>
           <label class="field">
-            <span>Pathra <em>required</em></span>
-            <input id="pathra" type="text" lang="kn" autocomplete="off">
+            <span>Pathra <small>(optional override)</small></span>
+            <input id="pathra" type="text" lang="kn" autocomplete="off" placeholder="ಉದಾ: ದ್ರೋಣ">
           </label>
         </div>
 
         <details class="optional-block">
           <summary>Optional inputs</summary>
           <div class="optional-content">
-            <label class="field">
-              <span>Prativadi’s role</span>
+            <label class="field" id="prativadiField">
+              <span>Prativadi’s role <small>(optional override for dialogue)</small></span>
               <input id="prativadi" type="text" lang="kn" autocomplete="off" placeholder="ದ್ರುಪದ">
             </label>
             <label class="field">
@@ -96,16 +106,19 @@
         </details>
 
         <div class="run-row">
-          <button id="runBtn" class="primary-btn" type="button">Run five-beat pipeline</button>
-          <button id="resetExampleBtn" class="text-btn" type="button">Reload example</button>
+          <button id="runBtn" class="primary-btn generate-fresh" type="button">Generate fresh artha →</button>
+          <button id="resetExampleBtn" class="text-btn" type="button">Load example</button>
         </div>
-        <p class="hint">Layers 1–4 run in order. The pipeline pauses at Reading until you choose or write your own.</p>
+        <p class="hint">ಹೊಸ ಪದ್ಯಕ್ಕೆ ಹೊಸ ಅರ್ಥ. Editing the padya clears old results. Generate fresh artha runs beats 1–4, then pauses for your reading choice before the response. Swagatha stays one-role; Dialogue uses two roles.</p>
+        <label class="auto-generate"><input id="autoGenerate" type="checkbox"><span>Auto-analyse after editing</span></label>
+        <p class="hint">Off by default. When enabled, a pause in typing starts live analysis (beats 1–4) and may incur API charges. It still pauses for your reading choice before the response.</p>
       </section>
 
       <section class="card note-card">
-        <h2>Live LLM only</h2>
-        <p>No offline generator is bundled. Layers 1–4 each make one JSON call; Layer 5 makes one streaming call. Keys stay in this browser and are proxied by this app’s server only for the request.</p>
-        <button id="settingsBtn2" class="text-btn" type="button">Open model settings →</button>
+        <h2>Live model connection</h2>
+        <p id="connectionStatus" class="connection-status" role="status">Checking model connection…</p>
+        <p id="connectionHint">Dynamic artha needs an AI model. The example is never substituted for a live answer.</p>
+        <button id="settingsBtn2" class="text-btn" type="button">Connect model / API key →</button>
       </section>
 
       <section class="card note-card guidance-card">
@@ -218,11 +231,11 @@
         <div class="layer-head">
           <div class="layer-title">
             <span class="layer-no">05</span>
-            <div><h2>ಅರ್ಥ ಸಂವಾದ / Adaptive Response</h2><p>Strong interpretation through A: / P: discussion, not mere padya meaning.</p></div>
+            <div><h2 id="responseHeading">ಅರ್ಥ ಸ್ವಗತ / Adaptive Response</h2><p id="responseSubheading">Strong interpretation in the chosen mode, not mere padya meaning.</p></div>
           </div>
           <div class="layer-actions">
             <span class="status-chip" data-status>Ready</span>
-            <button class="mini-btn edit-btn" type="button">Edit A:/P: lines</button>
+            <button class="mini-btn edit-btn" type="button">Edit response lines</button>
           </div>
         </div>
 
@@ -237,12 +250,12 @@
           </label>
           <label>Length
             <select id="length">
-              <option value="short">Short · 8–12 lines</option>
-              <option value="medium">Medium · 14–20 lines</option>
-              <option value="long">Long · 22–30 lines</option>
+              <option value="short">Short · 10–14 lines</option>
+              <option value="medium">Medium · 16–22 lines</option>
+              <option value="long">Long · 24–32 lines</option>
             </select>
           </label>
-          <label>ಪ್ರತಿವಾದಿಯ ಶೈಲಿ
+          <label id="prativadiStyleField">ಪ್ರತಿವಾದಿಯ ಶೈಲಿ
             <select id="prativadiStyle">
               <option value="dialogue">ಸಮತೋಲಿತ ಸಂವಾದ</option>
               <option value="gentle">ಮೃದು, ಆದರೆ ನಿರ್ದಿಷ್ಟ ಆಕ್ಷೇಪ</option>
@@ -259,19 +272,20 @@
           </div>
         </div>
 
-        <div class="stage" id="stage" aria-live="polite"></div>
+        <div class="stage" id="stage" aria-live="polite" aria-busy="false"></div>
         <div id="discussionQuality" class="discussion-quality" hidden></div>
         <div class="stage-foot">
-          <span><code>A:</code> = ಪಾತ್ರ, <code>P:</code> = ಪ್ರತಿವಾದಿ. ಎರಡು ಪಾತ್ರಗಳಿದ್ದರೆ ಸಂವಾದವೇ ಅರ್ಥವನ್ನು ಮುಂದಕ್ಕೆ ಒಯ್ಯುತ್ತದೆ.</span>
+          <span id="stageLegend"><code>A:</code> = ಪಾತ್ರ. ಸ್ವಗತದಲ್ಲಿ ಒಂದೇ ಪಾತ್ರ; ಸಂವಾದದಲ್ಲಿ <code>P:</code> = ಪ್ರತಿವಾದಿ.</span>
           <span id="stageCount"></span>
         </div>
         <div class="override-editor" hidden>
-          <label>Override the A:/P: lines <textarea spellcheck="false"></textarea></label>
+          <label>Override the response lines <textarea spellcheck="false"></textarea></label>
           <div class="editor-actions"><button class="mini-btn save-override" type="button">Save override</button><button class="mini-btn cancel-override" type="button">Cancel</button></div>
         </div>
         <div class="error-box" hidden></div>
       </section>
     </div>
+  <footer class="app-footer"><span id="appVersion">v1.3.0 · swagatha + dialogue</span><span>ಎಐ-ಸಹಾಯಿತ ಸೂಚನೆ · ಅಂತಿಮ ನಿರ್ಧಾರ ಕಲಾವಿದರದು</span></footer>
   </main>
 
   <dialog id="settingsDialog">
@@ -281,6 +295,8 @@
       <label>Base URL <input id="cfgBaseUrl" type="url" placeholder="https://api.openai.com/v1" autocomplete="off"></label>
       <label>API key <input id="cfgApiKey" type="password" placeholder="sk-… (stored in this browser only)" autocomplete="off"></label>
       <label>Model <input id="cfgModel" type="text" placeholder="gpt-4o-mini" autocomplete="off"></label>
+      <label class="no-key-option"><input id="cfgAllowNoKey" type="checkbox"><span>This endpoint intentionally needs no API key</span></label>
+      <p class="hint">Leave this off for OpenAI and other keyed providers. A key entered here is saved in this browser and sent to this app’s backend for model requests. Use a key with a spending limit.</p>
       <div class="field-row">
         <label>Temperature <input id="cfgTemperature" type="number" step="0.1" min="0" max="2" placeholder="0.7"></label>
         <label>Max tokens <input id="cfgMaxTokens" type="number" step="100" min="1" placeholder="1800"></label>

@@ -388,6 +388,24 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
 .guidance-card .book-list { margin: 8px 0; padding-left: 18px; }
 .guidance-card a { color: var(--accent); }
 
+/* Dynamic-input workspace */
+.generate-fresh { width: 100%; font-size: 1rem; padding: 12px 16px; }
+.auto-generate { display: flex; gap: 9px; align-items: center; margin-top: 14px; font-size: .88rem; cursor: pointer; }
+.auto-generate input, .no-key-option input { width: 18px; height: 18px; accent-color: var(--accent); }
+.no-key-option { display: flex !important; align-items: center; gap: 9px; }
+.connection-status { font-weight: 700; color: var(--ink) !important; }
+.connection-status[data-state='ready'] { color: #27633b !important; }
+html[data-theme='dark'] .connection-status[data-state='ready'] { color: #a8d5ad !important; }
+.connection-status[data-state='setup'], .connection-status[data-state='error'] { color: var(--accent) !important; }
+.ai-badge { border-color: var(--accent-line); color: var(--accent); }
+[aria-invalid='true'] { border-color: var(--accent) !important; box-shadow: 0 0 0 2px var(--accent-soft); }
+.app-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 4px 2px 18px; color: var(--ink-2); font-size: .76rem; }
+.source-empty { padding: 12px; border: 1px dashed var(--accent-line); border-radius: 9px; color: var(--accent); font-weight: 600; }
+@media (max-width: 640px) { .topbar { position: static; } .generate-fresh { min-height: 48px; } }
+
+.mode-field select { width: 100%; }
+#prativadiField[hidden], #prativadiStyleField[hidden] { display: none; }
+
 </style>
   
   
@@ -413,9 +431,10 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
 
   <div class="principles">
     <strong>ಅರ್ಥವು ಪದ್ಯದ ಶಬ್ದಾರ್ಥ ಮಾತ್ರವಲ್ಲ.</strong> It is a situated interpretation tested in dialogue. Every panel can be edited; the artiste decides.
-    <span id="sampleBadge" class="badge">Prefilled example snapshot</span>
+    <span id="sampleBadge" class="badge" hidden>Example only — not generated</span>
+    <span id="outputLabel" class="badge ai-badge" hidden>ಎಐ-ಸಹಾಯಿತ ಸೂಚನೆ</span>
   </div>
-  <div class="static-banner"><strong>Static file preview.</strong> This self-contained copy shows the full prefilled five-beat state without a server. Live LLM calls are disabled here; use the running app on port 3000 for model runs.</div>
+  <div class="static-banner"><strong>Static demonstration — not the live generator.</strong> This file only shows the prefilled example. To interpret your own padya, open the deployed Render Web Service at <code>/</code> (not <code>/preview.html</code>) and connect a model. See UPDATE-DEPLOYED.md.</div>
 
 
   <section class="progress-wrap" aria-label="Five-beat progress">
@@ -426,7 +445,7 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
       <li data-beat="4"><span class="beat-dot">4</span><span class="beat-label">Reading</span></li>
       <li data-beat="5"><span class="beat-dot">5</span><span class="beat-label">Response</span></li>
     </ol>
-    <p id="pipelineStatus" aria-live="polite">Prefilled example — all five beats shown. Configure a model and run the pipeline to recompute.</p>
+    <p id="pipelineStatus" aria-live="polite">Choose Swagatha or Dialogue, enter padya and prasanga, connect a model, then generate. Roles can be inferred or overridden.</p>
   </section>
 
   <main class="layout">
@@ -441,26 +460,35 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
 
         <label class="field">
           <span>Pada <em>required</em></span>
-          <textarea id="pada" rows="9" lang="kn" spellcheck="false" aria-describedby="padaHint"></textarea>
+          <textarea id="pada" rows="9" lang="kn" spellcheck="false" aria-describedby="padaHint" placeholder="ನಿಮ್ಮ ಪದ್ಯವನ್ನು ಇಲ್ಲಿ ಅಂಟಿಸಿ…"></textarea>
           <small id="padaHint">[ಸಂಗೀತ] cues and &gt;&gt; separators are removed before Layer 1.</small>
+        </label>
+
+        <label class="field mode-field">
+          <span>Mode <em>required</em></span>
+          <select id="mode" aria-describedby="modeHint">
+            <option value="swagatha">ಸ್ವಗತ / Swagatha — one role introduces itself</option>
+            <option value="dialogue">ಸಂವಾದ / Dialogue — two roles debate</option>
+          </select>
+          <small id="modeHint">ಸ್ವಗತದಲ್ಲಿ ಪ್ರತಿವಾದಿ ಇರುವುದಿಲ್ಲ. Dialogue may infer a prativadi; you can override it.</small>
         </label>
 
         <div class="field-row">
           <label class="field">
             <span>Prasanga <em>required</em></span>
-            <input id="prasanga" type="text" lang="kn" autocomplete="off">
+            <input id="prasanga" type="text" lang="kn" autocomplete="off" placeholder="ಉದಾ: ಗುರುದಕ್ಷಿಣೆ">
           </label>
           <label class="field">
-            <span>Pathra <em>required</em></span>
-            <input id="pathra" type="text" lang="kn" autocomplete="off">
+            <span>Pathra <small>(optional override)</small></span>
+            <input id="pathra" type="text" lang="kn" autocomplete="off" placeholder="ಉದಾ: ದ್ರೋಣ">
           </label>
         </div>
 
         <details class="optional-block">
           <summary>Optional inputs</summary>
           <div class="optional-content">
-            <label class="field">
-              <span>Prativadi’s role</span>
+            <label class="field" id="prativadiField">
+              <span>Prativadi’s role <small>(optional override for dialogue)</small></span>
               <input id="prativadi" type="text" lang="kn" autocomplete="off" placeholder="ದ್ರುಪದ">
             </label>
             <label class="field">
@@ -480,16 +508,19 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
         </details>
 
         <div class="run-row">
-          <button id="runBtn" class="primary-btn" type="button">Run five-beat pipeline</button>
-          <button id="resetExampleBtn" class="text-btn" type="button">Reload example</button>
+          <button id="runBtn" class="primary-btn generate-fresh" type="button">Generate fresh artha →</button>
+          <button id="resetExampleBtn" class="text-btn" type="button">Load example</button>
         </div>
-        <p class="hint">Layers 1–4 run in order. The pipeline pauses at Reading until you choose or write your own.</p>
+        <p class="hint">ಹೊಸ ಪದ್ಯಕ್ಕೆ ಹೊಸ ಅರ್ಥ. Editing the padya clears old results. Generate fresh artha runs beats 1–4, then pauses for your reading choice before the response. Swagatha stays one-role; Dialogue uses two roles.</p>
+        <label class="auto-generate"><input id="autoGenerate" type="checkbox"><span>Auto-analyse after editing</span></label>
+        <p class="hint">Off by default. When enabled, a pause in typing starts live analysis (beats 1–4) and may incur API charges. It still pauses for your reading choice before the response.</p>
       </section>
 
       <section class="card note-card">
-        <h2>Live LLM only</h2>
-        <p>No offline generator is bundled. Layers 1–4 each make one JSON call; Layer 5 makes one streaming call. Keys stay in this browser and are proxied by this app’s server only for the request.</p>
-        <button id="settingsBtn2" class="text-btn" type="button">Open model settings →</button>
+        <h2>Live model connection</h2>
+        <p id="connectionStatus" class="connection-status" role="status">Checking model connection…</p>
+        <p id="connectionHint">Dynamic artha needs an AI model. The example is never substituted for a live answer.</p>
+        <button id="settingsBtn2" class="text-btn" type="button">Connect model / API key →</button>
       </section>
 
       <section class="card note-card guidance-card">
@@ -602,11 +633,11 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
         <div class="layer-head">
           <div class="layer-title">
             <span class="layer-no">05</span>
-            <div><h2>ಅರ್ಥ ಸಂವಾದ / Adaptive Response</h2><p>Strong interpretation through A: / P: discussion, not mere padya meaning.</p></div>
+            <div><h2 id="responseHeading">ಅರ್ಥ ಸ್ವಗತ / Adaptive Response</h2><p id="responseSubheading">Strong interpretation in the chosen mode, not mere padya meaning.</p></div>
           </div>
           <div class="layer-actions">
             <span class="status-chip" data-status>Ready</span>
-            <button class="mini-btn edit-btn" type="button">Edit A:/P: lines</button>
+            <button class="mini-btn edit-btn" type="button">Edit response lines</button>
           </div>
         </div>
 
@@ -621,12 +652,12 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
           </label>
           <label>Length
             <select id="length">
-              <option value="short">Short · 8–12 lines</option>
-              <option value="medium">Medium · 14–20 lines</option>
-              <option value="long">Long · 22–30 lines</option>
+              <option value="short">Short · 10–14 lines</option>
+              <option value="medium">Medium · 16–22 lines</option>
+              <option value="long">Long · 24–32 lines</option>
             </select>
           </label>
-          <label>ಪ್ರತಿವಾದಿಯ ಶೈಲಿ
+          <label id="prativadiStyleField">ಪ್ರತಿವಾದಿಯ ಶೈಲಿ
             <select id="prativadiStyle">
               <option value="dialogue">ಸಮತೋಲಿತ ಸಂವಾದ</option>
               <option value="gentle">ಮೃದು, ಆದರೆ ನಿರ್ದಿಷ್ಟ ಆಕ್ಷೇಪ</option>
@@ -643,19 +674,20 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
           </div>
         </div>
 
-        <div class="stage" id="stage" aria-live="polite"></div>
+        <div class="stage" id="stage" aria-live="polite" aria-busy="false"></div>
         <div id="discussionQuality" class="discussion-quality" hidden></div>
         <div class="stage-foot">
-          <span><code>A:</code> = ಪಾತ್ರ, <code>P:</code> = ಪ್ರತಿವಾದಿ. ಎರಡು ಪಾತ್ರಗಳಿದ್ದರೆ ಸಂವಾದವೇ ಅರ್ಥವನ್ನು ಮುಂದಕ್ಕೆ ಒಯ್ಯುತ್ತದೆ.</span>
+          <span id="stageLegend"><code>A:</code> = ಪಾತ್ರ. ಸ್ವಗತದಲ್ಲಿ ಒಂದೇ ಪಾತ್ರ; ಸಂವಾದದಲ್ಲಿ <code>P:</code> = ಪ್ರತಿವಾದಿ.</span>
           <span id="stageCount"></span>
         </div>
         <div class="override-editor" hidden>
-          <label>Override the A:/P: lines <textarea spellcheck="false"></textarea></label>
+          <label>Override the response lines <textarea spellcheck="false"></textarea></label>
           <div class="editor-actions"><button class="mini-btn save-override" type="button">Save override</button><button class="mini-btn cancel-override" type="button">Cancel</button></div>
         </div>
         <div class="error-box" hidden></div>
       </section>
     </div>
+  <footer class="app-footer"><span id="appVersion">v1.3.0 · swagatha + dialogue</span><span>ಎಐ-ಸಹಾಯಿತ ಸೂಚನೆ · ಅಂತಿಮ ನಿರ್ಧಾರ ಕಲಾವಿದರದು</span></footer>
   </main>
 
   <dialog id="settingsDialog">
@@ -665,6 +697,8 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
       <label>Base URL <input id="cfgBaseUrl" type="url" placeholder="https://api.openai.com/v1" autocomplete="off"></label>
       <label>API key <input id="cfgApiKey" type="password" placeholder="sk-… (stored in this browser only)" autocomplete="off"></label>
       <label>Model <input id="cfgModel" type="text" placeholder="gpt-4o-mini" autocomplete="off"></label>
+      <label class="no-key-option"><input id="cfgAllowNoKey" type="checkbox"><span>This endpoint intentionally needs no API key</span></label>
+      <p class="hint">Leave this off for OpenAI and other keyed providers. A key entered here is saved in this browser and sent to this app’s backend for model requests. Use a key with a spending limit.</p>
       <div class="field-row">
         <label>Temperature <input id="cfgTemperature" type="number" step="0.1" min="0" max="2" placeholder="0.7"></label>
         <label>Max tokens <input id="cfgMaxTokens" type="number" step="100" min="1" placeholder="1800"></label>
@@ -687,12 +721,13 @@ dialog::backdrop { background: rgba(10, 12, 10, .58); backdrop-filter: blur(2px)
 
   <div id="toast" role="status" aria-live="polite"></div>
   <script>
-/* Fixed first-load example snapshot. This is NOT a generator.
-   Live runs replace it with one LLM call per layer. */
+/* Optional example snapshot. This is NOT a generator.
+   The live app starts blank; live runs use the current input. */
 window.TALAMADDALE_SAMPLE = {
   inputs: {
     pada: 'ಸಾೋಹವಿಂದು ಮರವಯರಯಿತ್ರ | ಅಧಿಕರರಜನಯ |\n\nಮೊೋಹವಲಿ ಮೋರ ಮಿೋರಿತ್ರ ||\n\nಸಾೋಹವಂದು ಬಹು ಪ್ವಿತ್ಾ | ದ ಾೋಹ ಬಗಯಬೋಡ ಬದುಕ |\n\nರ ಹಿಗಂದು ಹಸುವನೆ ಂದ | ದೋಹಿಯನುವ ಎನಗ ನಿೋಡು || 1 || 10||',
     prasanga: 'ಗುರುದಕ್ಷಿಣೆ',
+    mode: 'dialogue',
     pathra: 'ದ್ರೋಣ',
     prativadi: 'ದ್ರುಪದ',
     outputLanguage: 'kn',
@@ -1008,10 +1043,10 @@ window.TALA_STATIC_PREVIEW = true;
   window.fetch = function (url, options) {
     var u = String(url);
     if (u.indexOf('/api/health') !== -1) {
-      return jsonResponse({ ok: true, mode: 'static-preview', serverHasKey: false, serverHasBaseUrl: false, serverHasModel: false }, true, 200);
+      return jsonResponse({ ok: true, mode: 'static-preview', version: '1.2.0-static-preview', dynamicInput: false, configured: false, serverHasKey: false, serverHasBaseUrl: false, serverHasModel: false }, true, 200);
     }
     if (u.indexOf('/api/llm') !== -1) {
-      return jsonResponse({ ok: false, error: 'Static file preview: live LLM calls need the running server on port 3000.' }, false, 503);
+      return jsonResponse({ ok: false, error: 'Static demonstration only. Open your deployed Render URL at / to generate artha for a new padya.' }, false, 503);
     }
     if (nativeFetch) return nativeFetch(url, options);
     return Promise.reject(new Error('No network in this static preview.'));
@@ -1024,6 +1059,8 @@ window.TALA_STATIC_PREVIEW = true;
   'use strict';
 
   const SAMPLE = window.TALAMADDALE_SAMPLE;
+  const STATIC_PREVIEW = Boolean(window.TALA_STATIC_PREVIEW);
+  const APP_VERSION = '1.3.0-swagatha-dialogue';
   const SOURCES = [
     'Valmiki Ramayana', 'Mahabharata', 'Bhagavata Purana', 'Garuda Purana',
     'Markandeya Purana', 'Vishnu Purana', 'Shiva Purana', 'Skanda Purana',
@@ -1058,12 +1095,16 @@ window.TALA_STATIC_PREVIEW = true;
   }
 
   const dom = {
-    pada: $('#pada'), prasanga: $('#prasanga'), pathra: $('#pathra'),
+    pada: $('#pada'), prasanga: $('#prasanga'), pathra: $('#pathra'), mode: $('#mode'),
     prativadi: $('#prativadi'), outputLanguage: $('#outputLanguage'), exemplar: $('#exemplar'),
     register: $('#register'), length: $('#length'), prativadiStyle: $('#prativadiStyle'), responseNote: $('#responseNote'),
     runBtn: $('#runBtn'), resetExampleBtn: $('#resetExampleBtn'), stopBtn: $('#stopBtn'), clearBtn: $('#clearBtn'),
     themeToggle: $('#themeToggle'), settingsBtn: $('#settingsBtn'), settingsBtn2: $('#settingsBtn2'),
     continueBtn: $('#continueBtn'), generateBtn: $('#generateBtn'), regenerateBtn: $('#regenerateBtn'), copyBtn: $('#copyBtn'),
+    autoGenerate: $('#autoGenerate'), connectionStatus: $('#connectionStatus'), connectionHint: $('#connectionHint'),
+    outputLabel: $('#outputLabel'), appVersion: $('#appVersion'),
+    prativadiField: $('#prativadiField'), prativadiRequired: $('#prativadiRequired'), prativadiStyleField: $('#prativadiStyleField'),
+    responseHeading: $('#responseHeading'), responseSubheading: $('#responseSubheading'), stageLegend: $('#stageLegend'),
     readingHint: $('#readingHint'), pauseNote: $('#pauseNote'), pipelineStatus: $('#pipelineStatus'), sampleBadge: $('#sampleBadge'),
     stage: $('#stage'), stageCount: $('#stageCount'), discussionQuality: $('#discussionQuality'), toast: $('#toast'),
     beats: $$('#beats li'), settingsDialog: $('#settingsDialog'), serverConfigNote: $('#serverConfigNote')
@@ -1085,7 +1126,13 @@ window.TALA_STATIC_PREVIEW = true;
     sample: true,
     runningLayer: null,
     abortController: null,
-    variation: 0
+    variation: 0,
+    epoch: 0,
+    inputKey: '',
+    controlKey: '',
+    health: null,
+    autoTimer: null,
+    composing: false
   };
 
   let stageRaf = 0;
@@ -1096,6 +1143,7 @@ window.TALA_STATIC_PREVIEW = true;
   function setInputsToDom() {
     dom.pada.value = state.inputs.pada || '';
     dom.prasanga.value = state.inputs.prasanga || '';
+    dom.mode.value = state.inputs.mode || 'swagatha';
     dom.pathra.value = state.inputs.pathra || '';
     dom.prativadi.value = state.inputs.prativadi || '';
     dom.outputLanguage.value = state.inputs.outputLanguage || 'kn';
@@ -1110,8 +1158,9 @@ window.TALA_STATIC_PREVIEW = true;
     state.inputs = {
       pada: dom.pada.value,
       prasanga: dom.prasanga.value.trim(),
+      mode: dom.mode.value,
       pathra: dom.pathra.value.trim(),
-      prativadi: dom.prativadi.value.trim(),
+      prativadi: dom.mode.value === 'dialogue' ? dom.prativadi.value.trim() : '',
       outputLanguage: dom.outputLanguage.value,
       exemplar: dom.exemplar.value
     };
@@ -1132,10 +1181,11 @@ window.TALA_STATIC_PREVIEW = true;
         model: c.model || '',
         temperature: c.temperature === undefined ? '' : c.temperature,
         maxTokens: c.maxTokens === undefined ? '' : c.maxTokens,
-        tokenParam: c.tokenParam || 'max_tokens'
+        tokenParam: c.tokenParam || 'max_tokens',
+        allowNoKey: c.allowNoKey === true
       };
     } catch (_) {
-      return { baseUrl: '', apiKey: '', model: '', temperature: '', maxTokens: '', tokenParam: 'max_tokens' };
+      return { baseUrl: '', apiKey: '', model: '', temperature: '', maxTokens: '', tokenParam: 'max_tokens', allowNoKey: false };
     }
   }
 
@@ -1147,25 +1197,41 @@ window.TALA_STATIC_PREVIEW = true;
     $('#cfgTemperature').value = c.temperature;
     $('#cfgMaxTokens').value = c.maxTokens;
     $('#cfgTokenParam').value = c.tokenParam;
+    $('#cfgAllowNoKey').checked = c.allowNoKey;
   }
 
   function saveSettings() {
+    const baseUrl = $('#cfgBaseUrl').value.trim();
+    if (baseUrl) {
+      try {
+        const u = new URL(baseUrl);
+        if (!['https:', 'http:'].includes(u.protocol) || u.username || u.password) throw new Error();
+      } catch (_) {
+        showToast('Enter a complete HTTP(S) Base URL without embedded credentials.');
+        return;
+      }
+    }
     const c = {
-      baseUrl: $('#cfgBaseUrl').value.trim(),
+      baseUrl,
       apiKey: $('#cfgApiKey').value.trim(),
       model: $('#cfgModel').value.trim(),
       temperature: $('#cfgTemperature').value,
       maxTokens: $('#cfgMaxTokens').value,
-      tokenParam: $('#cfgTokenParam').value
+      tokenParam: $('#cfgTokenParam').value,
+      allowNoKey: $('#cfgAllowNoKey').checked
     };
     storage.set('talamaddale-config', JSON.stringify(c));
     dom.settingsDialog.close();
-    showToast('Model settings saved in this browser.');
+    renderConnection();
+    updateButtons();
+    showToast('Model settings saved. Generate fresh artha to use them.');
   }
 
   function clearSettings() {
     storage.remove('talamaddale-config');
     loadSettingsToDialog();
+    renderConnection();
+    updateButtons();
     showToast('Saved model settings cleared. Server defaults still apply.');
   }
 
@@ -1182,17 +1248,48 @@ window.TALA_STATIC_PREVIEW = true;
     applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
   }
 
-  async function checkServerConfig() {
-    try {
-      const res = await fetch('/api/health');
-      const j = await res.json();
-      const defaults = [j.serverHasKey && 'API key', j.serverHasBaseUrl && 'base URL', j.serverHasModel && 'model'].filter(Boolean);
-      dom.serverConfigNote.textContent = defaults.length
-        ? `Server environment has ${defaults.join(', ')}. Browser fields override those values; blank fields fall back to them.`
-        : 'No server environment defaults detected. Enter an OpenAI-compatible endpoint and key, or use a local endpoint with a blank key.';
-    } catch (_) {
-      dom.serverConfigNote.textContent = 'Could not check server defaults. The app will still use browser fields.';
+  function modelReady() {
+    const c = getConfig();
+    return Boolean((state.health && state.health.configured) || c.apiKey || (c.allowNoKey && c.baseUrl));
+  }
+
+  function renderConnection() {
+    let status = 'setup', text = 'Model not connected', hint = 'Open Model settings and enter your provider URL, model and API key. Without a live model, this app cannot interpret a new padya.';
+    if (STATIC_PREVIEW) {
+      status = 'preview'; text = 'Read-only static preview'; hint = 'This file demonstrates the interface only. Open your Render URL at / to generate artha for your own padya.';
+    } else if (state.health && state.health.error) {
+      status = 'error'; text = 'Backend not reachable'; hint = 'Open the deployed Render URL, not preview.html. Check that the Render service is Live.';
+    } else if (modelReady()) {
+      status = 'ready'; text = 'Model configured — ready to generate'; hint = 'Every generation sends the current padya to your configured model. API charges may apply. Configuration is not a live connection test.';
+    } else if (state.health) {
+      hint = 'No API key is configured. Open Model settings. For a deliberately keyless endpoint, enter its URL and tick the no-key option.';
     }
+    dom.connectionStatus.textContent = text;
+    dom.connectionStatus.dataset.state = status;
+    dom.connectionHint.textContent = hint;
+    dom.serverConfigNote.textContent = hint;
+  }
+
+  async function checkServerConfig() {
+    if (STATIC_PREVIEW) { dom.appVersion.textContent = '1.2.0 · static demonstration'; renderConnection(); return; }
+    try {
+      const res = await fetch('/api/health', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Health check failed');
+      const j = await res.json();
+      if (!j.ok) throw new Error('Backend unavailable');
+      state.health = j;
+      dom.appVersion.textContent = `${j.version || APP_VERSION} · dynamic input`;
+    } catch (_) {
+      state.health = { error: true };
+    }
+    renderConnection();
+    updateButtons();
+  }
+
+  function openSettings() {
+    loadSettingsToDialog();
+    if (typeof dom.settingsDialog.showModal === 'function') dom.settingsDialog.showModal();
+    else dom.settingsDialog.setAttribute('open', '');
   }
 
   function showToast(message) {
@@ -1209,6 +1306,8 @@ window.TALA_STATIC_PREVIEW = true;
       .replace(/ತಲಮದ್ದಲೆ|ತಲಮದ್ದಳೆ|ತಾಳಮದ್ದಲೆ|ತಾಳ\s+ಮದ್ದಳೆ/g, 'ತಾಳಮದ್ದಳೆ')
       .replace(/ಅರ್ಥದಾರಿ/g, 'ಅರ್ಥಧಾರಿ');
   }
+
+  function currentMode() { return dom.mode && dom.mode.value === 'dialogue' ? 'dialogue' : 'swagatha'; }
 
   function parseArtha(raw) {
     return String(raw || '')
@@ -1233,8 +1332,9 @@ window.TALA_STATIC_PREVIEW = true;
     const aWords = a.reduce((n, l) => n + countWords(l.text), 0);
     const pWords = p.reduce((n, l) => n + countWords(l.text), 0);
     const totalWords = aWords + pWords;
-    const twoRoles = Boolean(String(inputs.prativadi || '').trim());
+    const twoRoles = (inputs.mode || currentMode()) === 'dialogue';
     const warnings = [];
+    if (!twoRoles && p.length) warnings.push('ಸ್ವಗತದಲ್ಲಿ ಪ್ರತಿವಾದಿಯ ಮಾತುಗಳಿವೆ; ಏಕಪಾತ್ರ ಅರ್ಥವಾಗಿ ತಿದ್ದಿ ಅಥವಾ ಸಂವಾದ ಮೋಡ್ ಆಯ್ಕೆಮಾಡಿ.');
     if (twoRoles) {
       if (p.length < 3) warnings.push('ಎರಡು ಪಾತ್ರಗಳಿವೆ; ಪ್ರತಿವಾದಿಯ ಮಾತುಗಳು ತೀರಾ ಕಡಿಮೆ.');
       if (totalWords && pWords / totalWords < 0.25) warnings.push('ಪ್ರತಿವಾದಿಯ ಪಾಲು ಕಡಿಮೆ; ಅರ್ಥವು ಏಕಮುಖ ಭಾಷಣದಂತೆ ಕೇಳಬಹುದು.');
@@ -1262,8 +1362,10 @@ window.TALA_STATIC_PREVIEW = true;
 
   function renderStage() {
     dom.stage.replaceChildren();
+    dom.stage.setAttribute('aria-busy', state.runningLayer === 5 ? 'true' : 'false');
     if (!state.arthaLines.length) {
-      dom.stage.append(el('div', 'stage-empty', 'The artha will appear here as A: and P: lines.'));
+      const message = state.runningLayer === 5 ? 'Generating a fresh response from the current padya…' : ((state.inputs.pada.trim() && state.inputs.prasanga.trim()) ? 'Fresh input is ready. Generate the analysis, choose a reading, then generate the response.' : 'Enter your padya and choose a mode. The generated artha will appear here.');
+      dom.stage.append(el('div', 'stage-empty', message));
       dom.stageCount.textContent = '0 lines';
       if (dom.discussionQuality) dom.discussionQuality.hidden = true;
       return;
@@ -1278,7 +1380,8 @@ window.TALA_STATIC_PREVIEW = true;
     });
     const a = state.arthaLines.filter((l) => l.speaker === 'A').length;
     const p = state.arthaLines.length - a;
-    dom.stageCount.textContent = `${state.arthaLines.length} lines · ${a} A / ${p} P`;
+    dom.stageCount.textContent = currentMode() === 'dialogue' ? `${state.arthaLines.length} lines · ${a} A / ${p} P` : `${state.arthaLines.length} lines · ಸ್ವಗತ`;
+    if (currentMode() === 'swagatha' && p) dom.stageCount.textContent += ` · ${p} P lines need review`;
     const quality = assessArtha(state.arthaLines, state.inputs);
     if (dom.discussionQuality) {
       dom.discussionQuality.replaceChildren();
@@ -1293,7 +1396,11 @@ window.TALA_STATIC_PREVIEW = true;
           dom.discussionQuality.append(el('span', '', ' · ಸಂವಾದದ ಸಮತೋಲನ ಸರಿಯಾಗಿದೆ. ಅಂತಿಮ ತೀರ್ಮಾನ ಕಲಾವಿದರದು.'));
         }
       } else {
-        dom.discussionQuality.hidden = true;
+        dom.discussionQuality.hidden = false;
+        dom.discussionQuality.replaceChildren(el('strong', '', 'ಸ್ವಗತ · ಏಕಪಾತ್ರ'));
+        if (quality.warnings.length) {
+          const ul = el('ul'); quality.warnings.forEach((w) => ul.append(el('li', '', w))); dom.discussionQuality.append(ul);
+        } else dom.discussionQuality.append(el('span', '', ' · ಪಾತ್ರದ ಪರಿಚಯ ಮತ್ತು ಸ್ವಗತ ಅರ್ಥ. ಅಂತಿಮ ತೀರ್ಮಾನ ಕಲಾವಿದರದು.'));
       }
     }
     dom.stage.scrollTop = dom.stage.scrollHeight;
@@ -1314,7 +1421,7 @@ window.TALA_STATIC_PREVIEW = true;
       try { document.execCommand('copy'); } catch (e) { /* no-op */ }
       ta.remove();
     }
-    showToast('ಅರ್ಥ ನಕಲಾಗಿದೆ; A:/P: ಪಾತ್ರಗಳೊಂದಿಗೆ >> ಬಳಸಲಾಗಿದೆ.');
+    showToast('ಅರ್ಥ ನಕಲಾಗಿದೆ; ಪಾತ್ರ ಸೂಚನೆಗಳೊಂದಿಗೆ >> ಬಳಸಲಾಗಿದೆ.');
   }
 
   /* ---------- structured rendering helpers ---------- */
@@ -1344,7 +1451,7 @@ window.TALA_STATIC_PREVIEW = true;
   }
 
   function renderLayer1(body, data) {
-    if (!data) { body.append(emptyMsg('No context yet. Run the pipeline or load the example.')); return; }
+    if (!data) { body.append(emptyMsg('No context yet. Enter the current padya and select Generate fresh artha.')); return; }
     body.append(el('div', 'cleaned-box', data.cleaned_transcript || ''));
     body.append(el('p', 'cleaning-note', data.cleaning_note || ''));
     const grid = el('div', 'kv-grid');
@@ -1363,8 +1470,9 @@ window.TALA_STATIC_PREVIEW = true;
   }
 
   function renderLayer2(body, data) {
-    if (!data) { body.append(emptyMsg('No passages yet. Run the pipeline or load the example.')); return; }
+    if (!data) { body.append(emptyMsg('No passages yet. Generate the analysis for the current padya.')); return; }
     const passages = Array.isArray(data.passages) ? data.passages : [];
+    if (!passages.length) body.append(el('p', 'source-empty', 'ಮೂಲ ಲಭ್ಯವಿಲ್ಲ — no passage was securely recalled. Do not treat the interpretation as source-verified.'));
     const used = new Set((Array.isArray(data.used_sources) ? data.used_sources : passages.map((p) => p.source).filter((s) => SOURCES.includes(s))));
     const chips = el('div', 'source-chips');
     SOURCES.forEach((name) => chips.append(el('span', used.has(name) ? 'source-chip used' : 'source-chip', name)));
@@ -1424,7 +1532,7 @@ window.TALA_STATIC_PREVIEW = true;
   }
 
   function renderLayer3(body, data) {
-    if (!data) { body.append(emptyMsg('No arguments yet. Run the pipeline or load the example.')); return; }
+    if (!data) { body.append(emptyMsg('No arguments yet. Generate the analysis for the current padya.')); return; }
     ensureArgumentDefaults(true);
     const args = Array.isArray(data.arguments) ? data.arguments : [];
     const kept = args.filter((a) => isKept(a.id)).length;
@@ -1552,7 +1660,7 @@ window.TALA_STATIC_PREVIEW = true;
   }
 
   function statusText(n) {
-    const map = { empty: 'Empty', sample: 'Sample', done: 'Done', running: 'Running', paused: 'Paused', error: 'Retry' };
+    const map = { empty: 'Not generated', sample: 'Example', done: 'Generated', running: 'Generating…', paused: 'Your choice', error: 'Needs attention' };
     return map[state.layerStatus[String(n)]] || 'Empty';
   }
 
@@ -1597,7 +1705,20 @@ window.TALA_STATIC_PREVIEW = true;
     }
   }
 
+  function renderModeUi() {
+    const dialogue = currentMode() === 'dialogue';
+    if (dom.prativadiRequired) dom.prativadiRequired.hidden = true;
+    dom.prativadi.disabled = STATIC_PREVIEW || !dialogue;
+    dom.prativadiStyleField.hidden = !dialogue;
+    dom.prativadiStyle.disabled = STATIC_PREVIEW || !dialogue;
+    dom.responseHeading.textContent = dialogue ? 'ಅರ್ಥ ಸಂವಾದ / Adaptive Response' : 'ಅರ್ಥ ಸ್ವಗತ / Adaptive Response';
+    dom.responseSubheading.textContent = dialogue ? 'Strong interpretation through A: / P: discussion.' : 'One-role introduction and self-understanding; no invented prativadi.';
+    dom.stageLegend.textContent = dialogue ? 'A: = ಪಾತ್ರ, P: = ಪ್ರತಿವಾದಿ. ಸಂವಾದವೇ ಅರ್ಥವನ್ನು ಮುಂದಕ್ಕೆ ಒಯ್ಯುತ್ತದೆ.' : 'ಸ್ವಗತ: A: ಮಾತ್ರ. ಒಂದೇ ಪಾತ್ರದ ಪರಿಚಯ, ನಿಲುವು ಮತ್ತು ಅರ್ಥ.';
+  }
+
   function renderAll() {
+    renderModeUi();
+    dom.outputLabel.hidden = state.sample || !(Object.values(state.layers).some(Boolean) || state.arthaLines.length);
     for (let n = 1; n <= 5; n += 1) renderLayer(n);
     renderBeats();
     updateButtons();
@@ -1606,12 +1727,19 @@ window.TALA_STATIC_PREVIEW = true;
   function updateButtons() {
     const running = Boolean(state.runningLayer);
     const reading = hasReading();
-    dom.runBtn.disabled = running;
+    dom.runBtn.disabled = running || STATIC_PREVIEW;
+    dom.autoGenerate.disabled = STATIC_PREVIEW;
+    dom.settingsBtn.disabled = STATIC_PREVIEW;
+    dom.settingsBtn2.disabled = STATIC_PREVIEW;
     dom.stopBtn.disabled = !state.abortController;
     dom.continueBtn.disabled = !reading || running;
     dom.generateBtn.disabled = !reading || running;
-    dom.regenerateBtn.disabled = !state.rawArtha.trim() || running;
-    dom.copyBtn.disabled = !state.arthaLines.length;
+    dom.regenerateBtn.disabled = !state.rawArtha.trim() || running || STATIC_PREVIEW;
+    dom.continueBtn.disabled = !reading || running || STATIC_PREVIEW;
+    dom.generateBtn.disabled = !reading || running || STATIC_PREVIEW;
+    dom.copyBtn.disabled = !state.arthaLines.length || running;
+    $$('.edit-btn').forEach((btn) => { btn.disabled = running || STATIC_PREVIEW; });
+    $$('.retry-btn').forEach((btn) => { btn.disabled = running || STATIC_PREVIEW; });
     dom.readingHint.textContent = reading
       ? 'Reading chosen. The response will use only kept arguments and this reading.'
       : 'Choose a reading or write your own.';
@@ -1621,34 +1749,32 @@ window.TALA_STATIC_PREVIEW = true;
     $$('.override-editor').forEach((editor) => { editor.hidden = true; });
   }
 
-  function loadSample() {
-    stopAll(false);
-    state.inputs = clone(SAMPLE.inputs);
-    state.controls = clone(SAMPLE.controls);
-    state.layers = clone(SAMPLE.layers);
-    state.errors = {};
-    state.argumentDefaults = clone(SAMPLE.argumentDefaults);
-    state.argumentSelection = clone(SAMPLE.argumentSelection);
-    state.readingChoice = clone(SAMPLE.readingChoice);
-    state.customReading = SAMPLE.customReading || '';
-    state.rawArtha = SAMPLE.rawArtha || '';
-    state.arthaLines = parseArtha(state.rawArtha);
-    state.sample = true;
-    state.layerStatus = { '1': 'sample', '2': 'sample', '3': 'sample', '4': 'sample', '5': 'sample' };
-    state.beats = { '1': 'done', '2': 'done', '3': 'done', '4': 'done', '5': 'done' };
-    state.runningLayer = null;
-    state.abortController = null;
-    state.variation = 0;
-    dom.sampleBadge.hidden = false;
-    dom.pauseNote.textContent = 'The artistic choice stays with the artiste. The pipeline pauses here.';
-    setInputsToDom();
-    hideAllEditors();
-    renderAll();
-    setStatus('Prefilled example — all five beats shown. Configure a model and run the pipeline to recompute.');
+  function fingerprint(value) { return JSON.stringify(value); }
+
+  function cancelAutoGenerate() {
+    if (state.autoTimer) window.clearTimeout(state.autoTimer);
+    state.autoTimer = null;
   }
 
-  function clearResults() {
-    stopAll(false);
+  function scheduleAutoGenerate(responseOnly = false) {
+    cancelAutoGenerate();
+    if (!dom.autoGenerate.checked || STATIC_PREVIEW || state.composing) return;
+    syncInputs();
+    if (!state.inputs.pada.trim() || !state.inputs.prasanga.trim()) return;
+    if (!modelReady()) {
+      setStatus('Input changed. Connect a model before automatic generation can run.');
+      return;
+    }
+    setStatus('Input changed. Automatic live generation will start after you pause typing…');
+    state.autoTimer = window.setTimeout(() => {
+      state.autoTimer = null;
+      if (!dom.autoGenerate.checked || state.runningLayer) return;
+      if (responseOnly && hasReading()) generateArtha(false);
+      else runFrom(1);
+    }, 1600);
+  }
+
+  function resetOutputState() {
     state.layers = { '1': null, '2': null, '3': null, '4': null };
     state.errors = {};
     state.argumentDefaults = {};
@@ -1665,12 +1791,113 @@ window.TALA_STATIC_PREVIEW = true;
     dom.sampleBadge.hidden = true;
     dom.pauseNote.textContent = 'The artistic choice stays with the artiste. The pipeline pauses here.';
     hideAllEditors();
+  }
+
+  function invalidateForInput() {
+    syncInputs();
+    const nextInput = fingerprint(state.inputs);
+    const nextControl = fingerprint(state.controls);
+    if (nextInput === state.inputKey && nextControl === state.controlKey) return;
+    const contentChanged = nextInput !== state.inputKey;
+    state.epoch += 1;
+    cancelAutoGenerate();
+    if (state.abortController) state.abortController.abort();
+    state.abortController = null;
+    if (stageRaf) { cancelAnimationFrame(stageRaf); stageRaf = 0; }
+    if (contentChanged) {
+      resetOutputState();
+      state.inputKey = nextInput;
+      state.controlKey = nextControl;
+      renderAll();
+      setStatus('Input changed — old results cleared. Generate fresh artha for this padya.');
+    } else {
+      state.controlKey = nextControl;
+      state.rawArtha = '';
+      state.arthaLines = [];
+      state.errors['5'] = null;
+      state.layerStatus['5'] = 'empty';
+      state.beats['5'] = 'pending';
+      state.runningLayer = null;
+      renderAll();
+      setStatus('Response settings changed. Generate a new response; the current analysis and reading are kept.');
+    }
+    scheduleAutoGenerate(!contentChanged);
+  }
+
+  function invalidateResponseForChoice() {
+    state.epoch += 1;
+    if (state.abortController) state.abortController.abort();
+    state.abortController = null;
+    state.runningLayer = null;
+    state.rawArtha = '';
+    state.arthaLines = [];
+    state.errors['5'] = null;
+    state.layerStatus['5'] = 'empty';
+    state.beats['5'] = 'pending';
+    renderLayer(5); renderBeats(); updateButtons();
+    scheduleAutoGenerate(true);
+  }
+
+  function startBlank() {
+    state.epoch += 1;
+    cancelAutoGenerate();
+    state.inputs = { pada: '', prasanga: '', pathra: '', mode: 'swagatha', prativadi: '', outputLanguage: 'kn', exemplar: '' };
+    state.controls = { register: 'argumentative', length: 'medium', prativadiStyle: 'dialogue', note: '' };
+    resetOutputState();
+    state.abortController = null;
+    state.inputKey = fingerprint(state.inputs);
+    state.controlKey = fingerprint(state.controls);
+    setInputsToDom();
     renderAll();
-    setStatus('Results cleared. Inputs and model settings were kept.');
+    setStatus('Choose Swagatha or Dialogue, enter padya and prasanga, connect a model, then generate.');
+  }
+
+  function loadSample() {
+    stopAll(false);
+    cancelAutoGenerate();
+    dom.autoGenerate.checked = false;
+    state.epoch += 1;
+    state.inputs = clone(SAMPLE.inputs);
+    state.controls = clone(SAMPLE.controls);
+    state.layers = clone(SAMPLE.layers);
+    state.errors = {};
+    state.argumentDefaults = clone(SAMPLE.argumentDefaults);
+    state.argumentSelection = clone(SAMPLE.argumentSelection);
+    state.readingChoice = clone(SAMPLE.readingChoice);
+    state.customReading = SAMPLE.customReading || '';
+    state.rawArtha = SAMPLE.rawArtha || '';
+    state.arthaLines = parseArtha(state.rawArtha);
+    state.sample = true;
+    state.layerStatus = { '1': 'sample', '2': 'sample', '3': 'sample', '4': 'sample', '5': 'sample' };
+    state.beats = { '1': 'done', '2': 'done', '3': 'done', '4': 'done', '5': 'done' };
+    state.runningLayer = null;
+    state.abortController = null;
+    state.variation = 0;
+    state.inputKey = fingerprint(state.inputs);
+    state.controlKey = fingerprint(state.controls);
+    dom.sampleBadge.hidden = false;
+    dom.pauseNote.textContent = 'The artistic choice stays with the artiste. The pipeline pauses here.';
+    setInputsToDom();
+    hideAllEditors();
+    renderAll();
+    setStatus('Example only — not a live answer. Edit any input to clear it, or enter your own padya and generate fresh artha.');
+  }
+
+  function clearResults() {
+    state.epoch += 1;
+    cancelAutoGenerate();
+    if (state.abortController) state.abortController.abort();
+    state.abortController = null;
+    syncInputs();
+    resetOutputState();
+    renderAll();
+    setStatus('Results cleared. Inputs and model settings were kept. Generate fresh artha when ready.');
   }
 
   function stopAll(showMessage = true) {
+    cancelAutoGenerate();
     if (!state.abortController) return;
+    state.epoch += 1;
     const stoppedLayer = state.runningLayer;
     state.abortController.abort();
     state.abortController = null;
@@ -1682,7 +1909,7 @@ window.TALA_STATIC_PREVIEW = true;
     state.runningLayer = null;
     renderAll();
     if (showMessage) {
-      setStatus('Stopped. Use a layer’s Retry button to continue from there.');
+      setStatus('Stopped. Retry the current layer or generate fresh artha when ready.');
       showToast('Stopped.');
     }
   }
@@ -1690,7 +1917,6 @@ window.TALA_STATIC_PREVIEW = true;
   /* ---------- LLM calls ---------- */
 
   function buildPayload(layer, extra = {}) {
-    syncInputs();
     const previous = {};
     for (let i = 1; i <= 4; i += 1) previous[String(i)] = state.layers[String(i)];
     return {
@@ -1723,67 +1949,82 @@ window.TALA_STATIC_PREVIEW = true;
 
   async function runFrom(startLayer) {
     if (state.runningLayer) return;
+    cancelAutoGenerate();
     syncInputs();
-    if (!state.inputs.pada.trim() || !state.inputs.prasanga.trim() || !state.inputs.pathra.trim()) {
-      showToast('Pada, prasanga and pathra are required.');
+    const missing = [['pada', dom.pada], ['prasanga', dom.prasanga]].filter(([key]) => !state.inputs[key].trim());
+    [dom.pada, dom.prasanga, dom.pathra, dom.prativadi].forEach((node) => node.removeAttribute('aria-invalid'));
+    if (missing.length) {
+      missing.forEach(([, node]) => node.setAttribute('aria-invalid', 'true'));
+      missing[0][1].focus();
+      setStatus('Padya and prasanga are required. Choose a mode; roles may be inferred or overridden.');
+      showToast('Fill the required fields for the chosen mode.');
       return;
     }
-    const start = Math.max(1, Math.min(4, Number(startLayer) || 1));
-    for (let n = start; n <= 5; n += 1) {
+    if (STATIC_PREVIEW) { showToast('This is a static preview. Open the deployed Render URL to generate.'); return; }
+    if (!state.health || state.health.error) await checkServerConfig();
+    if (!modelReady()) {
+      renderConnection();
+      setStatus('Connect a live model first. No example or fake meaning will be substituted.');
+      openSettings();
+      return;
+    }
+    let start = Math.max(1, Math.min(4, Number(startLayer) || 1));
+    if (state.sample || start > 1 && !state.layers[String(start - 1)]) start = 1;
+    state.inputKey = fingerprint(state.inputs);
+    state.controlKey = fingerprint(state.controls);
+    for (let n = start; n <= 4; n += 1) {
       state.layers[String(n)] = null;
       state.errors[String(n)] = null;
       state.layerStatus[String(n)] = 'empty';
       state.beats[String(n)] = 'pending';
     }
-    // A rerun from layer 4 keeps layer 3 and the artiste's tick/untick overrides.
-    if (start <= 3) {
-      state.argumentDefaults = {};
-      state.argumentSelection = {};
-    }
+    if (start <= 3) { state.argumentDefaults = {}; state.argumentSelection = {}; }
     state.readingChoice = null;
     state.customReading = '';
     state.rawArtha = '';
     state.arthaLines = [];
     state.sample = false;
     dom.sampleBadge.hidden = true;
+    hideAllEditors();
+    state.epoch += 1;
+    const epoch = state.epoch;
     state.abortController = new AbortController();
     const signal = state.abortController.signal;
+    const current = () => epoch === state.epoch && !signal.aborted;
     renderAll();
 
     for (let n = start; n <= 4; n += 1) {
+      if (!current()) return;
       state.runningLayer = n;
       state.layerStatus[String(n)] = 'running';
       state.beats[String(n)] = 'running';
-      renderLayer(n);
-      renderBeats();
-      updateButtons();
-      setStatus(`Beat ${n} of 5 · one live LLM call returning JSON…`);
+      renderLayer(n); renderBeats(); updateButtons();
+      setStatus(`Beat ${n} of 5 · generating from the current padya…`);
       try {
         const data = await callJsonLayer(n, signal);
-        if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+        if (!current()) return;
         state.layers[String(n)] = data;
         state.errors[String(n)] = null;
         state.layerStatus[String(n)] = 'done';
         state.beats[String(n)] = 'done';
         if (n === 3) ensureArgumentDefaults(false);
         if (n === 4) {
-          state.layerStatus['4'] = 'paused';
-          state.beats['4'] = 'paused';
-          state.readingChoice = null;
-          state.customReading = '';
+          state.layerStatus['4'] = 'paused'; state.beats['4'] = 'paused';
+          state.readingChoice = null; state.customReading = '';
         }
-        renderLayer(n);
-        renderBeats();
+        renderLayer(n); renderBeats();
       } catch (err) {
+        if (!current()) return;
         handleLayerError(n, err, signal);
         return;
       }
     }
+    if (!current()) return;
     state.runningLayer = null;
     state.abortController = null;
     renderAll();
-    setStatus('Paused at beat 4 · Reading. Choose one of the three readings or write your own; nothing is ranked.');
-    showToast('Paused for your interpretation.');
+    setStatus('Fresh analysis ready · choose one of three readings or write your own, then select Continue to Response.');
+    showToast('Choose your interpretation to continue.');
   }
 
   function handleLayerError(n, err, signal) {
@@ -1794,46 +2035,40 @@ window.TALA_STATIC_PREVIEW = true;
     state.runningLayer = null;
     state.abortController = null;
     renderAll();
-    setStatus(aborted ? 'Stopped. Retry the layer when ready.' : `Beat ${n} needs attention. Retry just this layer; earlier results were kept.`);
+    setStatus(aborted ? 'Stopped. Retry when ready.' : `Beat ${n} needs attention. Check the model settings, then retry. No sample answer was substituted.`);
   }
 
   async function generateArtha(regenerate = false) {
     if (state.runningLayer) return;
-    if (!hasReading()) { showToast('Choose a reading first.'); return; }
-    syncInputs();
+    cancelAutoGenerate();
+    if (STATIC_PREVIEW) { showToast('Open the deployed Render URL for live generation.'); return; }
+    if (!hasReading() || !state.layers['1'] || !state.layers['2'] || !state.layers['3'] || !state.layers['4']) {
+      showToast('Generate the analysis and choose a reading first.'); return;
+    }
+    if (!modelReady()) { openSettings(); return; }
     previousArthaForRegenerate = regenerate ? state.rawArtha : '';
     state.variation = regenerate ? state.variation + 1 : 0;
+    state.epoch += 1;
+    const epoch = state.epoch;
     state.abortController = new AbortController();
     const signal = state.abortController.signal;
+    const current = () => epoch === state.epoch && !signal.aborted;
     state.runningLayer = 5;
-    state.sample = false;
-    dom.sampleBadge.hidden = true;
     state.errors['5'] = null;
-    state.layerStatus['5'] = 'running';
-    state.beats['5'] = 'running';
-    state.rawArtha = '';
-    state.arthaLines = [];
-    renderLayer(5);
-    renderBeats();
-    updateButtons();
-    setStatus('Beat 5 of 5 · streaming A: / P: lines…');
-    const payload = buildPayload(5, {
-      regenerate,
-      previousArtha: previousArthaForRegenerate,
-      variation: state.variation
-    });
-
+    state.layerStatus['5'] = 'running'; state.beats['5'] = 'running';
+    state.rawArtha = ''; state.arthaLines = [];
+    renderLayer(5); renderBeats(); updateButtons();
+    setStatus('Beat 5 of 5 · streaming a fresh A: / P: interpretation of the current padya…');
+    const payload = buildPayload(5, { regenerate, previousArtha: previousArthaForRegenerate, variation: state.variation });
     try {
       const res = await fetch('/api/llm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'stream', layer: 5, config: getConfig(), payload }),
-        signal
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'stream', layer: 5, config: getConfig(), payload }), signal
       });
+      if (!current()) return;
       if (!res.ok) {
         const text = await res.text();
-        let j = null;
-        try { j = JSON.parse(text); } catch (_) { /* ignore */ }
+        let j = null; try { j = JSON.parse(text); } catch (_) { /* ignore */ }
         throw new Error((j && j.error) || `Stream failed (${res.status}).`);
       }
       if (!res.body) throw new Error('The server returned no stream body.');
@@ -1841,29 +2076,29 @@ window.TALA_STATIC_PREVIEW = true;
       const decoder = new TextDecoder();
       while (true) {
         const chunk = await reader.read();
+        if (!current()) { await reader.cancel().catch(() => {}); return; }
         if (chunk.done) break;
         state.rawArtha += decoder.decode(chunk.value, { stream: true });
         state.arthaLines = parseArtha(state.rawArtha);
         scheduleStageRender();
       }
+      if (!current()) return;
       state.rawArtha += decoder.decode();
+      if (!parseArtha(state.rawArtha).length) throw new Error('The model returned no dialogue. Check the model and retry.');
       state.arthaLines = parseArtha(state.rawArtha);
-      renderStage();
-      state.layerStatus['5'] = 'done';
-      state.beats['5'] = 'done';
-      setStatus(regenerate ? 'Fresh artha streamed. Copy, edit, or regenerate again.' : 'Artha streamed. Copy, edit, or regenerate.');
+      state.layerStatus['5'] = 'done'; state.beats['5'] = 'done';
+      setStatus('Fresh artha generated for the current input · ಎಐ-ಸಹಾಯಿತ ಸೂಚನೆ. Review, edit or regenerate.');
     } catch (err) {
+      if (!current()) return;
       const aborted = (err && err.name === 'AbortError') || signal.aborted;
       state.errors['5'] = aborted ? 'Stopped by the artiste. Partial lines were kept.' : (err && err.message ? err.message : 'Unknown error.');
-      state.layerStatus['5'] = 'error';
-      state.beats['5'] = 'error';
-      setStatus(aborted ? 'Stopped during streaming. Partial artha kept.' : 'Beat 5 needs attention. Use Generate or Regenerate to retry.');
+      state.layerStatus['5'] = 'error'; state.beats['5'] = 'error';
+      setStatus(aborted ? 'Stopped during streaming. Partial artha kept.' : 'Beat 5 needs attention. Check the error and retry; no example was substituted.');
     } finally {
-      state.runningLayer = null;
-      state.abortController = null;
-      renderLayer(5);
-      renderBeats();
-      updateButtons();
+      if (current()) {
+        state.runningLayer = null; state.abortController = null;
+        renderLayer(5); renderBeats(); updateButtons();
+      }
     }
   }
 
@@ -1896,6 +2131,8 @@ window.TALA_STATIC_PREVIEW = true;
   }
 
   function openEditor(n) {
+    if (state.runningLayer) { showToast('Wait for generation to finish, or press Stop, before editing.'); return; }
+    if (STATIC_PREVIEW) { showToast('This is a static demonstration. Use the deployed app to edit and generate.'); return; }
     const card = $(`#layer${n}`);
     const editor = $('.override-editor', card);
     const ta = $('textarea', editor);
@@ -1907,13 +2144,14 @@ window.TALA_STATIC_PREVIEW = true;
   }
 
   function saveOverride(n) {
+    if (state.runningLayer || STATIC_PREVIEW) return;
     const card = $(`#layer${n}`);
     const editor = $('.override-editor', card);
     const ta = $('textarea', editor);
     try {
       if (n === 5) {
         const raw = ta.value.trim();
-        if (!raw) throw new Error('Write at least one A: or P: line.');
+        if (!raw) throw new Error('Write at least one response line.');
         state.rawArtha = raw;
         state.arthaLines = parseArtha(raw);
         state.layerStatus['5'] = 'done';
@@ -1939,11 +2177,22 @@ window.TALA_STATIC_PREVIEW = true;
           }
         }
       }
+      if (n < 5) {
+        for (let downstream = n + 1; downstream <= 4; downstream += 1) {
+          state.layers[String(downstream)] = null;
+          state.layerStatus[String(downstream)] = 'empty';
+          state.beats[String(downstream)] = 'pending';
+          state.errors[String(downstream)] = null;
+        }
+        if (n <= 3) { state.argumentDefaults = {}; state.argumentSelection = {}; state.readingChoice = null; state.customReading = ''; }
+        state.rawArtha = ''; state.arthaLines = [];
+        state.layerStatus['5'] = 'empty'; state.beats['5'] = 'pending'; state.errors['5'] = null;
+      }
       state.sample = false;
       dom.sampleBadge.hidden = true;
       editor.hidden = true;
       renderAll();
-      setStatus(`Layer ${n} override saved. Downstream layers may be stale; use “Rerun from here” if you want a fresh chain.`);
+      setStatus(`Layer ${n} override saved. Downstream results cleared. Rerun from the next layer to rebuild the chain.`);
       showToast('Override saved.');
     } catch (err) {
       showToast(`Could not save: ${err.message}`);
@@ -1958,8 +2207,8 @@ window.TALA_STATIC_PREVIEW = true;
     dom.clearBtn.addEventListener('click', clearResults);
     dom.stopBtn.addEventListener('click', () => stopAll(true));
     dom.themeToggle.addEventListener('click', toggleTheme);
-    dom.settingsBtn.addEventListener('click', () => { loadSettingsToDialog(); dom.settingsDialog.showModal(); });
-    dom.settingsBtn2.addEventListener('click', () => { loadSettingsToDialog(); dom.settingsDialog.showModal(); });
+    dom.settingsBtn.addEventListener('click', openSettings);
+    dom.settingsBtn2.addEventListener('click', openSettings);
     $('#saveSettingsBtn').addEventListener('click', saveSettings);
     $('#clearSettingsBtn').addEventListener('click', clearSettings);
     $('.close-dialog').addEventListener('click', () => dom.settingsDialog.close());
@@ -1985,20 +2234,24 @@ window.TALA_STATIC_PREVIEW = true;
     $('#layer3 .layer-body').addEventListener('change', (event) => {
       const target = event.target;
       if (!target.matches('input[type="checkbox"][data-arg-id]')) return;
+      if (state.runningLayer) { renderLayer(3); showToast('Wait for generation or press Stop before changing arguments.'); return; }
       state.argumentSelection[target.dataset.argId] = target.checked;
+      invalidateResponseForChoice();
       state.sample = false;
       dom.sampleBadge.hidden = true;
       renderLayer(3);
       updateButtons();
-      setStatus('Argument override noted. Regenerate the response to use the new kept set.');
+      setStatus('Argument selection changed. Old response cleared; generate a new response to use the kept set.');
     });
 
     $('#layer4 .layer-body').addEventListener('change', (event) => {
       const target = event.target;
       if (target.name === 'reading') {
+        if (state.runningLayer) { renderLayer(4); showToast('Wait for generation or press Stop before choosing a reading.'); return; }
         state.readingChoice = target.value === 'custom'
           ? { type: 'custom', id: 'custom' }
           : { type: 'model', id: target.value };
+        invalidateResponseForChoice();
         state.sample = false;
         dom.sampleBadge.hidden = true;
         updateButtons();
@@ -2007,7 +2260,9 @@ window.TALA_STATIC_PREVIEW = true;
 
     $('#layer4 .layer-body').addEventListener('input', (event) => {
       if (event.target.id !== 'customReadingText') return;
+      if (state.runningLayer) { renderLayer(4); return; }
       state.customReading = event.target.value;
+      invalidateResponseForChoice();
       if (state.customReading.trim()) {
         state.readingChoice = { type: 'custom', id: 'custom' };
         const radio = $('#customReadingRadio');
@@ -2018,12 +2273,20 @@ window.TALA_STATIC_PREVIEW = true;
       updateButtons();
     });
 
-    [dom.register, dom.length, dom.prativadiStyle, dom.responseNote].forEach((node) => {
-      node.addEventListener('change', () => {
-        state.sample = false;
-        dom.sampleBadge.hidden = true;
-        updateButtons();
-      });
+    const contentFields = [dom.pada, dom.prasanga, dom.pathra, dom.mode, dom.prativadi, dom.outputLanguage, dom.exemplar];
+    const responseFields = [dom.register, dom.length, dom.prativadiStyle, dom.responseNote];
+    [...contentFields, ...responseFields].forEach((node) => {
+      node.addEventListener('compositionstart', () => { state.composing = true; cancelAutoGenerate(); });
+      node.addEventListener('compositionend', () => { state.composing = false; invalidateForInput(); });
+      node.addEventListener('input', () => { if (!state.composing) invalidateForInput(); });
+      node.addEventListener('change', () => { if (!state.composing) invalidateForInput(); });
+    });
+    dom.autoGenerate.addEventListener('change', () => {
+      cancelAutoGenerate();
+      if (dom.autoGenerate.checked) {
+        showToast('Automatic model calls enabled. API charges may apply.');
+        scheduleAutoGenerate(false);
+      } else setStatus('Automatic generation off. Use Generate fresh artha when ready.');
     });
   }
 
@@ -2034,7 +2297,11 @@ window.TALA_STATIC_PREVIEW = true;
   wireEvents();
   loadSettingsToDialog();
   checkServerConfig();
-  loadSample();
+  if (STATIC_PREVIEW) {
+    loadSample();
+    [dom.pada, dom.prasanga, dom.pathra, dom.mode, dom.prativadi, dom.outputLanguage, dom.exemplar, dom.register, dom.length, dom.prativadiStyle, dom.responseNote].forEach((node) => { node.disabled = true; });
+    dom.clearBtn.disabled = true;
+  } else startBlank();
 })();
 
 </script>

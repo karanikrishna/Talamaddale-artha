@@ -8,7 +8,7 @@ This guide takes the downloaded ZIP, puts it on GitHub, and deploys the live app
 
 ## 1. Download and test locally
 
-1. Download `talamaddale-artha-updated.zip`.
+1. Download `talamaddale-artha-v1.3.zip`.
 2. Extract it. You should get a folder named `talamaddale-artha/`.
 3. Open a terminal in that folder and run:
 
@@ -20,7 +20,7 @@ npm start
 
 4. Open `http://localhost:3000`.
 
-You should see the prefilled Drona–Drupada example and all five panels. Live LLM calls still need an OpenAI-compatible endpoint under **Model settings**.
+You should see a blank dynamic workspace. Choose Swagatha or Dialogue, enter padya and prasanga, connect an OpenAI-compatible endpoint under **Model settings**, then select **Generate fresh artha**. The optional Load example button is not a generator.
 
 To test with server-side defaults instead of browser settings:
 
@@ -103,7 +103,10 @@ tools/build-preview.js
 
 ---
 
-## 3. Deploy on Render with the Blueprint
+## 3. New deployment option: Render Blueprint
+
+For an **existing** deployment, use `UPDATE-DEPLOYED.md` instead of creating another service.
+
 
 The included `render.yaml` tells Render exactly how to build and run the app.
 
@@ -116,7 +119,7 @@ The included `render.yaml` tells Render exactly how to build and run the app.
 
 | Variable | Recommended value | Notes |
 | --- | --- | --- |
-| `NODE_VERSION` | `20` | Already set in `render.yaml`. |
+| `NODE_VERSION` | `22` | Already set in `render.yaml`. |
 | `LLM_BASE_URL` | `https://api.openai.com/v1` | Or any OpenAI-compatible base URL. A URL ending in `/chat/completions` also works. |
 | `LLM_MODEL` | `gpt-4o-mini` | Change to a model your endpoint actually serves. |
 | `LLM_API_KEY` | your key | **Secret.** Set it in Render, never in Git. Leave blank if each user will enter their own key in **Model settings**. |
@@ -129,7 +132,7 @@ The included `render.yaml` tells Render exactly how to build and run the app.
 https://talamaddale-artha.onrender.com
 ```
 
-Because `autoDeploy: true` is set, every later `git push` to `main` triggers a new deploy.
+For an existing Render Web Service connected to GitHub, every later push to the deployed branch triggers a new deploy when Auto-Deploy is on. You can also use **Manual Deploy → Deploy latest commit**. Do not create a second service just to update this one.
 
 ---
 
@@ -149,7 +152,7 @@ Because `autoDeploy: true` is set, every later `git push` to `main` triggers a n
 | Start Command | `npm start` |
 | Health Check Path | `/api/health` |
 
-4. Add `NODE_VERSION=20` and the three `LLM_*` variables under **Environment**.
+4. Add `NODE_VERSION=22` and the three `LLM_*` variables under **Environment**.
 5. Create the Web Service.
 
 `Procfile` (`web: npm start`) is included as a fallback, but the explicit Start Command above is what Render uses.

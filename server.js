@@ -6,9 +6,10 @@ const path = require('node:path');
 const { URL } = require('node:url');
 
 const { buildMessages, extractJson, validateLayer } = require('./lib/prompts');
-const { normalizeKannadaTerms } = require('./lib/kannada');
+const { normalizeKannadaTerms, resolveMode } = require('./lib/kannada');
 const { BOOK_REFERENCES, CRAFT_GUIDANCE_KN } = require('./lib/guidance');
 
+const APP_VERSION = '1.3.0-swagatha-dialogue';
 const PORT = Number(process.env.PORT || 3000);
 const HOST = '0.0.0.0';
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -88,16 +89,86 @@ function serveStatic(req, res, pathname) {
   });
 }
 
+function isLocalEndpoint(value) {
+  try {
+    const u = new URL(value);
+    return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(u.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
 function resolveConfig(config) {
   const c = config && typeof config === 'object' ? config : {};
+  const defaultBase = process.env.LLM_BASE_URL || 'https://api.openai.com/v1';
+  const requestedBase = String(c.baseUrl || '').trim();
+  const baseUrl = (requestedBase || defaultBase).replace(/\/+$/, '');
+  const browserKey = String(c.apiKey || '').trim();
+  // Never send a server-owned key to a different provider supplied by a browser.
+  const mayUseServerKey = !requestedBase || requestedBase.replace(/\/+$/, '') === defaultBase.replace(/\/+$/, '');
+  const apiKey = browserKey || (mayUseServerKey ? String(process.env.LLM_API_KEY || '').trim() : '');
+  let parsed;
+  try {
+    parsed = new URL(chatEndpoint(baseUrl));
+  } catch (_) {
+    const err = new Error('Model Base URL is invalid. Use a complete HTTPS URL, such as https://api.openai.com/v1.');
+    err.status = 400;
+    throw err;
+  }
+  if (!['https:', 'http:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+    const err = new Error('The model endpoint must use HTTP(S), without embedded credentials.');
+    err.status = 400;
+    throw err;
+  }
+  const local = isLocalEndpoint(baseUrl);
+  if (parsed.protocol === 'http:' && !local) {
+    const err = new Error('Use HTTPS for a public model endpoint. HTTP is allowed only for a local model server.');
+    err.status = 400;
+    throw err;
+  }
+  const allowNoKey = c.allowNoKey === true || process.env.LLM_ALLOW_NO_KEY === 'true';
+  if (!apiKey && !local && !allowNoKey) {
+    const err = new Error('No model API key is configured. Open Model settings and enter your own key, or explicitly enable a public endpoint that needs no key. The example is never used as a generated answer.');
+    err.status = 400;
+    throw err;
+  }
+  const model = String(c.model || process.env.LLM_MODEL || 'gpt-4o-mini').trim();
+  if (!model) {
+    const err = new Error('Choose a model in Model settings.');
+    err.status = 400;
+    throw err;
+  }
   return {
-    baseUrl: String(c.baseUrl || process.env.LLM_BASE_URL || 'https://api.openai.com/v1').trim(),
-    apiKey: String(c.apiKey || process.env.LLM_API_KEY || '').trim(),
-    model: String(c.model || process.env.LLM_MODEL || 'gpt-4o-mini').trim(),
+    baseUrl,
+    apiKey,
+    model,
     temperature: c.temperature === '' || c.temperature === null || c.temperature === undefined ? null : Number(c.temperature),
     maxTokens: c.maxTokens === '' || c.maxTokens === null || c.maxTokens === undefined ? null : Number(c.maxTokens),
     tokenParam: ['max_tokens', 'max_completion_tokens', 'none'].includes(c.tokenParam) ? c.tokenParam : 'max_tokens'
   };
+}
+
+function validateInput(payload) {
+  const i = payload && payload.inputs;
+  if (!i || typeof i !== 'object') {
+    const err = new Error('Padya, prasanga and pathra are required.'); err.status = 400; throw err;
+  }
+  for (const [key, label] of [['pada', 'Padya'], ['prasanga', 'Prasanga']]) {
+    if (typeof i[key] !== 'string' || !i[key].trim()) {
+      const err = new Error(`${label} is required. Enter the current input before generating.`); err.status = 400; throw err;
+    }
+  }
+  const mode = i.mode === undefined ? resolveMode(i) : String(i.mode).trim().toLowerCase();
+  if (!['swagatha', 'dialogue'].includes(mode)) {
+    const err = new Error('Mode must be swagatha or dialogue.'); err.status = 400; throw err;
+  }
+  
+}
+
+function safeUpstreamError(raw, cfg) {
+  let text = String(raw || '').slice(0, 900);
+  if (cfg.apiKey) text = text.split(cfg.apiKey).join('[redacted]');
+  return text.replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, 'Bearer [redacted]');
 }
 
 function chatEndpoint(baseUrl) {
@@ -178,6 +249,7 @@ function deltaFromSsePayload(payload) {
 async function callJsonLayer(req, res, body, signal) {
   const cfg = resolveConfig(body.config);
   const layer = Number(body.layer);
+  validateInput(body.payload);
   const messages = buildMessages(layer, body.payload || {});
   const response = await fetch(chatEndpoint(cfg.baseUrl), {
     method: 'POST',
@@ -187,7 +259,7 @@ async function callJsonLayer(req, res, body, signal) {
   });
   const raw = await response.text();
   if (!response.ok) {
-    const err = new Error(`Upstream ${response.status}: ${raw.slice(0, 900)}`);
+    const err = new Error(`Upstream ${response.status}: ${safeUpstreamError(raw, cfg)}`);
     err.status = 502;
     throw err;
   }
@@ -195,7 +267,7 @@ async function callJsonLayer(req, res, body, signal) {
   try {
     data = JSON.parse(raw);
   } catch (_) {
-    const err = new Error(`Upstream returned non-JSON: ${raw.slice(0, 900)}`);
+    const err = new Error(`Upstream returned non-JSON: ${safeUpstreamError(raw, cfg)}`);
     err.status = 502;
     throw err;
   }
@@ -212,6 +284,7 @@ async function callJsonLayer(req, res, body, signal) {
 
 async function callStreamLayer(req, res, body, signal) {
   const cfg = resolveConfig(body.config);
+  validateInput(body.payload);
   const messages = buildMessages(5, body.payload || {});
   const response = await fetch(chatEndpoint(cfg.baseUrl), {
     method: 'POST',
@@ -222,7 +295,7 @@ async function callStreamLayer(req, res, body, signal) {
   const rawHead = response.headers.get('content-type') || '';
   if (!response.ok) {
     const raw = await response.text();
-    const err = new Error(`Upstream ${response.status}: ${raw.slice(0, 900)}`);
+    const err = new Error(`Upstream ${response.status}: ${safeUpstreamError(raw, cfg)}`);
     err.status = 502;
     throw err;
   }
@@ -306,8 +379,11 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/health') {
     return sendJson(res, 200, {
       ok: true,
-      mode: 'live-llm-only',
-      version: '1.1.0-talamaddale-discussion',
+      mode: 'dynamic-live-llm',
+      version: APP_VERSION,
+      dynamicInput: true,
+      modes: ['swagatha', 'dialogue'],
+      configured: Boolean(process.env.LLM_API_KEY) || isLocalEndpoint(process.env.LLM_BASE_URL || '') || process.env.LLM_ALLOW_NO_KEY === 'true',
       serverHasKey: Boolean(process.env.LLM_API_KEY),
       serverHasBaseUrl: Boolean(process.env.LLM_BASE_URL),
       serverHasModel: Boolean(process.env.LLM_MODEL)
@@ -370,5 +446,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Talamaddale Artha running at http://${HOST}:${PORT}`);
-  console.log('Live LLM mode only. Configure an OpenAI-compatible endpoint in Model settings.');
+  console.log(`Dynamic input mode (${APP_VERSION}). Configure a model; every run uses the current padya.`);
 });

@@ -36,15 +36,25 @@ test('layer 5 prompt requires substantive two-role discussion', () => {
   const messages = buildMessages(5, payload);
   const system = messages[0].content;
   assert.match(system, /ತಾಳಮದ್ದಳೆ/);
-  assert.match(system, /TWO-ROLE DISCUSSION IS MANDATORY/);
+  assert.match(system, /DIALOGUE MODE — TWO ROLES/);
   assert.match(system, /Do NOT use P: lines as only/);
   assert.match(system, /strong interpretation/);
   assert.match(messages[1].content, /CRAFT GUIDANCE/);
 });
 
-test('layer 5 monologue when no prativadi', () => {
-  const messages = buildMessages(5, { inputs: { pada: 'ಪದ್ಯ', pathra: 'ದ್ರೋಣ' }, previous: {} });
-  assert.match(messages[0].content, /No prativadi was supplied/);
+test('layer 5 swagatha is one-role only', () => {
+  const messages = buildMessages(5, { inputs: { pada: 'ಪದ್ಯ', pathra: 'ದ್ರೋಣ', mode: 'swagatha', prativadi: 'ದ್ರುಪದ' }, previous: {} });
+  assert.match(messages[0].content, /SWAGATHA MODE — ONE ROLE ONLY/);
+  assert.match(messages[0].content, /Output ONLY A: lines/);
+  assert.doesNotMatch(messages[0].content, /DIALOGUE MODE — TWO ROLES/);
+});
+
+test('explicit mode overrides legacy prativadi inference', () => {
+  const { resolveMode } = require('../lib/kannada');
+  assert.equal(resolveMode({ mode: 'swagatha', prativadi: 'ದ್ರುಪದ' }), 'swagatha');
+  assert.equal(resolveMode({ mode: 'dialogue' }), 'dialogue');
+  assert.equal(resolveMode({ prativadi: 'ದ್ರುಪದ' }), 'dialogue');
+  assert.equal(resolveMode({}), 'swagatha');
 });
 
 test('guidance references include ಜಾಗರ and ಕೇದಗೆ without copying artha', () => {

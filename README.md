@@ -1,12 +1,26 @@
 # ತಾಳಮದ್ದಳೆ ಅರ್ಥ · Talamaddale Artha
 
-A single-page workshop that turns a Yakshagana **ತಾಳಮದ್ದಳೆ** padya into a strong **ಅರ್ಥ** — a situated interpretation tested through two-role discussion — through five rhythmic beats.
+A single-page workshop that turns a Yakshagana **ತಾಳಮದ್ದಳೆ** padya into a strong **ಅರ್ಥ** through five rhythmic beats. It supports both **ಸ್ವಗತ / Swagatha** (one-role introduction/monologue) and **ಸಂವಾದ / Dialogue** (two-role argument).
 
-> ಅರ್ಥವು ಪದ್ಯದ ಸಾಲು-ಸಾಲಿನ ಶಬ್ದಾರ್ಥ ಮಾತ್ರವಲ್ಲ. It is the character’s interpretive stand in the moment, tested by the prativadi. The app keeps the final choice with the artiste.
+> ಅರ್ಥವು ಪದ್ಯದ ಸಾಲು-ಸಾಲಿನ ಶಬ್ದಾರ್ಥ ಮಾತ್ರವಲ್ಲ. It is the character’s interpretive stand in the moment: self-revealed in swagatha, tested by a prativadi in dialogue. The app keeps the final choice with the artiste.
 
-## What is pre-filled
+## Dynamic input behaviour (v1.3.0)
 
-The first load shows a **fixed example snapshot** using the transcription you supplied:
+The live app now starts **blank**. Choose **Swagatha** or **Dialogue**, enter your own padya and prasanga, connect a model, and select **Generate fresh artha**. Pathra and prativadi are optional overrides; the model may infer them cautiously from the padya/prasanga. Editing the padya or other content inputs immediately clears old analysis and dialogue, cancels an in-flight run, and prevents stale responses from reappearing. The app never substitutes the example for a failed or missing model response.
+
+- **Mode is explicit.** Swagatha never invents a second role. Dialogue uses A:/P: exchange.
+- **Manual generation is the default.** Select Generate fresh artha after editing.
+- **Auto-analyse after editing** is an explicit opt-in checkbox. After a 1.6-second typing pause it runs beats 1–4; it still pauses for the artiste’s reading choice before the response. It can incur API charges.
+- Response-setting changes clear only the old dialogue and keep the current analysis/reading.
+- Argument/reading changes clear the old dialogue so it cannot look current.
+- The **Load example** button is optional and clearly labelled **Example only — not generated**.
+- `public/preview.html` remains a read-only static demonstration. The deployed app at `/` is the dynamic application.
+
+A live OpenAI-compatible model is required for new interpretation. There is no offline meaning generator and no API key is bundled.
+
+## Optional example
+
+The example snapshot uses the transcription you supplied:
 
 - **Prasanga:** ಗುರುದಕ್ಷಿಣೆ
 - **Pathra:** ದ್ರೋಣ, speaking to ದ್ರುಪದ
@@ -42,12 +56,12 @@ Server environment defaults are also supported: `LLM_BASE_URL`, `LLM_API_KEY`, `
 ## Five-beat pipeline
 
 1. **Context** — removes `[ಸಂಗೀತ]` and `>>` / `&gt;&gt;`, then identifies scene, identity, state of mind, addressee, rasa, bhava, story so far, the interpretive problem, stakes, ambiguities and 3–5 lookup questions. One JSON LLM call.
-2. **Knowledge** — recalls 6–10 passages from the fixed sixteen-source corpus: Valmiki Ramayana, Mahabharata, Bhagavata, Garuda, Markandeya, Vishnu, Shiva, Skanda, Padma, Brahmanda, Agni, Varaha, Narada, Linga, Kurma and Matsya. Each passage carries source, location, gist, bearing, confidence, variant flag, and a `Regional tradition` label where appropriate. The UI highlights which of the sixteen were used. One JSON LLM call.
+2. **Knowledge** — recalls up to 10 passages; if none is securely recalled it shows **ಮೂಲ ಲಭ್ಯವಿಲ್ಲ** instead of inventing support. It considers the fixed sixteen-source corpus: Valmiki Ramayana, Mahabharata, Bhagavata, Garuda, Markandeya, Vishnu, Shiva, Skanda, Padma, Brahmanda, Agni, Varaha, Narada, Linga, Kurma and Matsya. Each passage carries source, location, gist, bearing, confidence, variant flag, and a `Regional tradition` label where appropriate. The UI highlights which of the sixteen were used. One JSON LLM call.
 3. **Arguments** — 4–7 interpretive arguments tested for prasanga fit, knowability at that moment, cross-source consistency and source support, with verdict, reason, prativadi objection, possible reply and interpretive gain. Tick or untick any argument. One JSON LLM call.
 4. **Reading** — exactly three unranked strong readings differing in rasa, stance or emphasis, each with a central claim, arguments and risk. The pipeline **pauses** until the artiste picks one or writes their own. One JSON LLM call.
-5. **Response** — streams `A:` / `P:` lines. When two roles are supplied, the prativadi must raise substantive objections and the pathra must answer them; filler-only interjections are discouraged. Uses only kept arguments and the chosen reading. Controls: register, length, prativadi style, free-text note. One streaming LLM call. **Copy** preserves `A:` / `P:` prefixes and joins with ` >> `. An advisory panel shows prativadi word share and discussion warnings.
+5. **Response** — streams `A:` lines for Swagatha, or `A:` / `P:` lines for Dialogue. In Dialogue the prativadi must raise substantive objections and the pathra must answer them; filler-only interjections are discouraged. In Swagatha the single role introduces itself and develops a situated judgment without an invented interlocutor. Uses only kept arguments and the chosen reading. Controls: register, length, prativadi style, free-text note. One streaming LLM call. **Copy** preserves `A:` / `P:` prefixes and joins with ` >> `. An advisory panel shows prativadi word share and discussion warnings.
 
-Every layer has an **Edit JSON** override (or **Edit A:/P: lines** for layer 5), a per-layer **Retry / Rerun from here** button, and its own error panel. Global **Stop** and **Clear** are in the header. Clear keeps inputs and settings.
+Every layer has an **Edit JSON** override (or **Edit response lines** for layer 5), a per-layer **Retry / Rerun from here** button, and its own error panel. Global **Stop** and **Clear** are in the header. Clear keeps inputs and settings.
 
 ## ಅರ್ಥಗಾರಿಕೆ guidance and books
 
@@ -76,7 +90,7 @@ The app states this in the Knowledge panel and repeats it in prompts: passages a
 
 ## Static file preview
 
-`public/preview.html` is a **self-contained copy** for the workspace file viewer: CSS, JavaScript, the Noto Serif Kannada fonts and the example snapshot are all inlined as data URIs. It shows the complete five-beat working state with no server, no network and no external resources. Live LLM calls are intentionally stubbed with a clear message; use the running app on port 3000 for model runs.
+`public/preview.html` is a **read-only demonstration**, not the dynamic generator. It is a **self-contained copy** for the workspace file viewer: CSS, JavaScript, the Noto Serif Kannada fonts and the example snapshot are all inlined as data URIs. It shows the complete five-beat working state with no server, no network and no external resources. Live LLM calls are intentionally stubbed with a clear message; use the running app on port 3000 for model runs.
 
 Rebuild it after editing the source files:
 
@@ -98,7 +112,7 @@ public/index.html         Single-page app shell (live app)
 public/preview.html       Self-contained static file-viewer preview
 public/styles.css         Visual identity, dark mode, responsive layout
 public/app.js             Pipeline state, rendering, overrides, streaming, controls
-public/sample-state.js    Fixed first-load example snapshot
+public/sample-state.js    Optional, clearly labelled example snapshot
 public/fonts/*.woff2      Noto Serif Kannada subsets
 tools/build-preview.js    Inlines all assets into public/preview.html
 ```
@@ -114,7 +128,7 @@ node tools/build-preview.js
 
 `render.yaml`, `Procfile`, `.env.example` and `DEPLOY.md` are included. See **[DEPLOY.md](DEPLOY.md)** for the full download → GitHub → Render walkthrough, including environment variables, security notes and troubleshooting.
 
-Quick summary: run `npm start` locally, `git init && git add . && git commit … && git push`, then create a Render **Blueprint** from the repository. Render sets `PORT`; the app already binds `0.0.0.0` and exposes `/api/health`.
+Quick summary: run `npm start` locally, push to GitHub, then create a Render **Web Service** (or Blueprint). For an existing deployment, replace the GitHub files and redeploy the same service — see **UPDATE-DEPLOYED.md**. Render sets `PORT`; the app binds `0.0.0.0` and exposes `/api/health`.
 
 ## References
 

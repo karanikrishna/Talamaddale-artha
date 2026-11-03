@@ -1,9 +1,10 @@
-/* Fixed first-load example snapshot. This is NOT a generator.
-   Live runs replace it with one LLM call per layer. */
+/* Optional example snapshot. This is NOT a generator.
+   The live app starts blank; live runs use the current input. */
 window.TALAMADDALE_SAMPLE = {
   inputs: {
     pada: 'ಸಾೋಹವಿಂದು ಮರವಯರಯಿತ್ರ | ಅಧಿಕರರಜನಯ |\n\nಮೊೋಹವಲಿ ಮೋರ ಮಿೋರಿತ್ರ ||\n\nಸಾೋಹವಂದು ಬಹು ಪ್ವಿತ್ಾ | ದ ಾೋಹ ಬಗಯಬೋಡ ಬದುಕ |\n\nರ ಹಿಗಂದು ಹಸುವನೆ ಂದ | ದೋಹಿಯನುವ ಎನಗ ನಿೋಡು || 1 || 10||',
     prasanga: 'ಗುರುದಕ್ಷಿಣೆ',
+    mode: 'dialogue',
     pathra: 'ದ್ರೋಣ',
     prativadi: 'ದ್ರುಪದ',
     outputLanguage: 'kn',

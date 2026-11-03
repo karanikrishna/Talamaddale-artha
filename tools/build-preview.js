@@ -62,10 +62,10 @@ window.TALA_STATIC_PREVIEW = true;
   window.fetch = function (url, options) {
     var u = String(url);
     if (u.indexOf('/api/health') !== -1) {
-      return jsonResponse({ ok: true, mode: 'static-preview', serverHasKey: false, serverHasBaseUrl: false, serverHasModel: false }, true, 200);
+      return jsonResponse({ ok: true, mode: 'static-preview', version: '1.2.0-static-preview', dynamicInput: false, configured: false, serverHasKey: false, serverHasBaseUrl: false, serverHasModel: false }, true, 200);
     }
     if (u.indexOf('/api/llm') !== -1) {
-      return jsonResponse({ ok: false, error: 'Static file preview: live LLM calls need the running server on port 3000.' }, false, 503);
+      return jsonResponse({ ok: false, error: 'Static demonstration only. Open your deployed Render URL at / to generate artha for a new padya.' }, false, 503);
     }
     if (nativeFetch) return nativeFetch(url, options);
     return Promise.reject(new Error('No network in this static preview.'));
@@ -89,7 +89,7 @@ html = html.replace('<script defer src="sample-state.js"></script>', () => '');
 html = html.replace('<script defer src="app.js"></script>', () => '');
 html = html.replace('</body>', () => `  ${scriptsBlock}\n</body>`);
 
-const banner = `\n  <div class="static-banner"><strong>Static file preview.</strong> This self-contained copy shows the full prefilled five-beat state without a server. Live LLM calls are disabled here; use the running app on port 3000 for model runs.</div>\n`;
+const banner = `\n  <div class="static-banner"><strong>Static demonstration — not the live generator.</strong> This file only shows the prefilled example. To interpret your own padya, open the deployed Render Web Service at <code>/</code> (not <code>/preview.html</code>) and connect a model. See UPDATE-DEPLOYED.md.</div>\n`;
 html = html.replace(/(<div class="principles">[\s\S]*?<\/div>)/, (match) => match + banner);
 
 if (/<link[^>]+href=["']styles\.css|<script[^>]+src=["'](?:app|sample-state)\.js/.test(html)) {

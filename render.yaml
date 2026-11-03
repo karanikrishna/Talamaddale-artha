@@ -1,15 +1,15 @@
 services:
   - type: web
     name: talamaddale-artha
-    env: node
+    runtime: node
     plan: free
-    autoDeploy: true
+    autoDeployTrigger: commit
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       # sync: false means Render prompts you to fill these in the dashboard.
       # Leave them blank if every artiste will bring their own key in the browser.
       - key: LLM_BASE_URL
